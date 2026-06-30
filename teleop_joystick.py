@@ -230,7 +230,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", default="/dev/input/js0")
     parser.add_argument("--cmd-topic", default="/RosAria/cmd_vel")
     parser.add_argument("--linear-axis", type=int, default=1, help="Default: left stick vertical on Xbox 360.")
-    parser.add_argument("--angular-axis", type=int, default=3, help="Default: right stick horizontal on Xbox 360.")
+    parser.add_argument("--angular-axis", type=int, default=2, help="Default: right stick horizontal (PS-style layout).")
     parser.add_argument("--invert-linear", action="store_true", default=True)
     parser.add_argument("--no-invert-linear", dest="invert_linear", action="store_false")
     parser.add_argument("--invert-angular", action="store_true", default=True)
