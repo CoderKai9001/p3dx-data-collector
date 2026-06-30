@@ -1,149 +1,179 @@
 # p3dx-data-collector
 
-Standalone Docker + tmux setup for collecting RGB/depth/odometry datasets from a P3DX + RealSense robot. No model inference or server connection required.
+Collect RGB + odometry datasets from a P3DX robot with a RealSense camera.
+Teleop is built in — drive the robot while frames are recorded automatically.
 
-## Build
+---
+
+## One-time setup
+
+**1. Build the Docker image** (run once, or after any file changes):
 
 ```bash
+cd /path/to/p3dx-data-collector
 docker build -t p3dx-data-collector .
 ```
 
-## Record a Dataset (default mode)
+**2. Plug in the robot and camera** via USB before starting.
+
+---
+
+## Recording a dataset
+
+**1. Start everything:**
 
 ```bash
 ./start_tmux.sh
 ```
 
-This starts a 5-pane tmux layout inside the container:
+This opens a tmux window with four panes that start automatically:
+- `roscore`
+- P3DX driver (`RosAria`)
+- RealSense camera
+- Data recorder + teleop side-by-side
 
-- top-left: `roscore`
-- top-right: `rosrun rosaria RosAria`
-- bottom-right: `roslaunch realsense2_camera rs_camera.launch`
-- bottom-left: `record_data.py` writing frames to `data/<DATASET_NAME>/`
-- bottom-left split: teleop pane (joystick + keyboard by default)
+Frames are saved to `./data/dataset_<timestamp>/` on your machine.
 
-Data is written to `./data/<DATASET_NAME>/` on the host:
+**2. Drive the robot** using the teleop pane (bottom-left split):
+
+| Key | Action |
+|-----|--------|
+| `w` | Forward |
+| `s` | Backward |
+| `a` | Turn left |
+| `d` | Turn right |
+| `space` | Stop |
+| `q` | Quit teleop |
+
+If you have a joystick/gamepad plugged in, it works in the same pane — left stick for forward/back, right stick for turning.
+
+**3. Stop recording** — press `Ctrl-C` in the recorder pane, or stop everything:
+
+```bash
+./start_tmux.sh stop
+```
+
+Dataset output:
 
 ```
 data/dataset_20250101_120000/
   images/000000.jpg
   images/000001.jpg
   ...
-  depth/000000.png          # only if SAVE_DEPTH=1
-  frames.jsonl              # per-frame stamp, odom, cmd
-  dataset_meta.json
+  frames.jsonl        ← per-frame timestamp, odometry, velocity command
+  dataset_meta.json   ← recording parameters
 ```
 
-### Common overrides
+### Options
 
+Give the dataset a name:
 ```bash
-DATASET_NAME=lab_run_001 ./start_tmux.sh
+DATASET_NAME=lab_corridor_001 ./start_tmux.sh
+```
+
+Change recording rate (default 1.5 Hz):
+```bash
 RECORD_HZ=3.0 ./start_tmux.sh
+```
+
+Also record depth images:
+```bash
 SAVE_DEPTH=1 ./start_tmux.sh
+```
+
+Higher resolution (default 320×240):
+```bash
 RECORD_WIDTH=640 RECORD_HEIGHT=480 ./start_tmux.sh
 ```
 
-Custom ROS topics:
+---
 
-```bash
-RGB_TOPIC=/camera/color/image_raw CMD_TOPIC=/cmd_vel ./start_tmux.sh
-```
+## Teleop only (no recording)
 
-## Teleop Only (no recording)
+**1. Start in teleop mode:**
 
 ```bash
 MODE=teleop ./start_tmux.sh
 ```
 
-Teleop defaults:
+Same four panes open but only the teleop pane is in the bottom-left — no recorder.
 
-- type: `both` (joystick + keyboard in the same pane)
-- joystick device: `/dev/input/js0`
-- left stick vertical axis `1`: forward/backward
-- right stick horizontal axis `3`: turning
-- angular sign: inverted (push stick right → robot turns right)
-- max speed: `TELEOP_MAX_V=0.20`, `TELEOP_MAX_W=0.75`
-- joystick center calibration for `0.75 s` on startup; leave sticks untouched
+**2. Drive** with the keyboard or joystick as above.
 
-Keyboard controls:
-
-- `w`/`s`: forward/backward
-- `a`/`d`: turn left/right
-- `space` or `x`: stop
-- `q`: quit
-
-### Teleop overrides
-
-```bash
-TELEOP_TYPE=keyboard MODE=teleop ./start_tmux.sh
-TELEOP_TYPE=joystick MODE=teleop ./start_tmux.sh
-TELEOP_MAX_V=0.30 TELEOP_MAX_W=1.0 MODE=teleop ./start_tmux.sh
-TELEOP_LINEAR_AXIS=1 TELEOP_ANGULAR_AXIS=4 MODE=teleop ./start_tmux.sh
-TELEOP_INVERT_ANGULAR=0 MODE=teleop ./start_tmux.sh
-TELEOP_CALIBRATE_SECONDS=2 TELEOP_DEADZONE=0.15 MODE=teleop ./start_tmux.sh
-TELEOP_ENABLE_BUTTON=0 MODE=teleop ./start_tmux.sh   # hold BtnA to enable motion
-```
-
-## Session Management
-
-Stop the tmux session and container:
+**3. Stop:**
 
 ```bash
 ./start_tmux.sh stop
 ```
 
-Detach without killing:
+### Options
 
+Keyboard only:
 ```bash
-./start_tmux.sh detach
+TELEOP_TYPE=keyboard MODE=teleop ./start_tmux.sh
 ```
 
-Re-attach later:
-
+Joystick only:
 ```bash
-tmux attach -t p3dx-data-collector
+TELEOP_TYPE=joystick MODE=teleop ./start_tmux.sh
 ```
 
-## ROS Driver Overrides
+Increase speed limits (defaults: 0.20 m/s, 0.75 rad/s):
+```bash
+TELEOP_MAX_V=0.30 TELEOP_MAX_W=1.0 MODE=teleop ./start_tmux.sh
+```
 
+If the robot turns at rest when you start, the joystick is drifting. Increase calibration time (leave sticks untouched for the first 2 seconds):
+```bash
+TELEOP_CALIBRATE_SECONDS=2 MODE=teleop ./start_tmux.sh
+```
+
+If turning is reversed on your controller:
+```bash
+TELEOP_INVERT_ANGULAR=0 MODE=teleop ./start_tmux.sh
+```
+
+If your controller uses different axes (check with `jstest /dev/input/js0`):
+```bash
+TELEOP_LINEAR_AXIS=1 TELEOP_ANGULAR_AXIS=4 MODE=teleop ./start_tmux.sh
+```
+
+Require holding a button to enable motion (e.g. BtnA = button 0 on Xbox pad):
+```bash
+TELEOP_ENABLE_BUTTON=0 MODE=teleop ./start_tmux.sh
+```
+
+---
+
+## Session management
+
+| Command | What it does |
+|---------|-------------|
+| `./start_tmux.sh` | Start everything and attach |
+| `./start_tmux.sh detach` | Start everything but don't attach |
+| `tmux attach -t p3dx-data-collector` | Re-attach to a running session |
+| `./start_tmux.sh stop` | Kill the tmux session and container |
+
+To apply any `MODE` or setting change, stop first then re-run:
+```bash
+./start_tmux.sh stop
+MODE=teleop ./start_tmux.sh
+```
+
+---
+
+## Notes
+
+**Robot port** — the default serial port is `/dev/ttyUSB0`. If the driver fails to connect, check which port the robot is on (`ls /dev/ttyUSB*`) and override:
 ```bash
 ROSARIA_CMD="rosrun rosaria RosAria _port:=/dev/ttyUSB1" ./start_tmux.sh
+```
+
+**Camera settings** — to change resolution or frame rate:
+```bash
 CAMERA_CMD="roslaunch realsense2_camera rs_camera.launch color_width:=640 color_height:=480 color_fps:=30 align_depth:=true" ./start_tmux.sh
 ```
 
-## Manual Use Inside Container
+**Joystick calibration** — at startup the teleop reads the stick positions for 0.75 s to learn the center. Leave all sticks untouched until you see the "Calibrating" message disappear.
 
-Record directly:
-
-```bash
-python3 /opt/data-collector/record_data.py \
-  --out-dir /data/p3dx/lab_run_001 \
-  --rgb-topic /camera/color/image_raw \
-  --odom-topic /RosAria/pose \
-  --cmd-topic /RosAria/cmd_vel \
-  --hz 1.5 \
-  --width 320 \
-  --height 240
-```
-
-Teleop directly (joystick + keyboard):
-
-```bash
-/opt/data-collector/teleop both \
-  --device /dev/input/js0 \
-  --cmd-topic /RosAria/cmd_vel \
-  --linear-axis 1 \
-  --angular-axis 3
-```
-
-Keyboard only:
-
-```bash
-/opt/data-collector/teleop keyboard --cmd-topic /RosAria/cmd_vel
-```
-
-## Safety Notes
-
-- Keep the P3DX e-stop reachable.
-- Start with low speed limits: `TELEOP_MAX_V=0.10 TELEOP_MAX_W=0.40`.
-- The joystick goes to zero when the device is unplugged or times out.
+**Safety** — keep the P3DX e-stop within reach. Start with the default (slow) speed limits before increasing them.
