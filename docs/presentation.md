@@ -128,7 +128,26 @@ Neither cares how the other is implemented.
 
 ## The Data Collection Stack — Overview
 
-![w:900](assets/stack_overview.png)
+```
+ ┌─────────────────────────────────────────────────────────────┐
+ │                     Docker Container                        │
+ │                                                             │
+ │   roscore                                                   │
+ │      │                                                      │
+ │      ├── RosAria ──────── /RosAria/pose ──────────────────► │
+ │      │       ▲                                   │          │
+ │      │       │ /RosAria/cmd_vel                  │          │
+ │      │       │                                   ▼          │
+ │      ├── teleop_joystick.py              record_data.py     │
+ │      │   teleop_keyboard.py              (saves frames,     │
+ │      │                                    odom, commands)   │
+ │      │                                       ▲              │
+ │      └── realsense2_camera ─/camera/color/───┘              │
+ │                              image_raw                      │
+ └─────────────────────────────────────────────────────────────┘
+                                   │
+                              ./data/ (host)
+```
 
 ---
 
@@ -269,7 +288,27 @@ dataset_meta.json        ← recording parameters (written on shutdown)
 
 ## How a Single Frame Gets Recorded
 
-![w:900](assets/frame_recording.png)
+```
+  RealSense camera
+       │  USB 3.x
+       ▼
+  realsense2_camera node
+       │  publishes sensor_msgs/Image to /camera/color/image_raw
+       ▼
+  record_data.py  rgb_callback()
+       │  stores latest_rgb + timestamp in memory
+       │
+  (meanwhile, at 1.5 Hz)
+       ▼
+  record_data.py  save_latest()
+       ├── cv_bridge converts Image → numpy array
+       ├── cv2.resize(rgb, (320, 240))
+       ├── cv2.imwrite("images/000042.jpg", bgr, quality=95)
+       └── writes JSON line: {frame_idx, stamp, odom, cmd}
+                                              ▲       ▲
+                               /RosAria/pose ─┘       │
+                               /RosAria/cmd_vel ───────┘
+```
 
 ---
 
