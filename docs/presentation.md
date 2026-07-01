@@ -31,7 +31,7 @@ to collect robot datasets
 
 **ROS (Robot Operating System)** is not an OS.
 
-It is a **message-passing middleware** — a system that lets independent programs running on the same machine (or network) talk to each other through named channels.
+It is a **message-passing middleware**. A system that lets independent programs running on the same machine (or network) talk to each other through named channels.
 
 <br>
 
@@ -128,26 +128,7 @@ Neither cares how the other is implemented.
 
 ## The Data Collection Stack — Overview
 
-```
- ┌─────────────────────────────────────────────────────────────┐
- │                     Docker Container                        │
- │                                                             │
- │   roscore                                                   │
- │      │                                                      │
- │      ├── RosAria ──────── /RosAria/pose ──────────────────► │
- │      │       ▲                                   │          │
- │      │       │ /RosAria/cmd_vel                  │          │
- │      │       │                                   ▼          │
- │      ├── teleop_joystick.py              record_data.py     │
- │      │   teleop_keyboard.py              (saves frames,     │
- │      │                                    odom, commands)   │
- │      │                                       ▲              │
- │      └── realsense2_camera ─/camera/color/───┘              │
- │                              image_raw                      │
- └─────────────────────────────────────────────────────────────┘
-                                   │
-                              ./data/ (host)
-```
+![w:900](assets/stack_overview.png)
 
 ---
 
@@ -288,27 +269,7 @@ dataset_meta.json        ← recording parameters (written on shutdown)
 
 ## How a Single Frame Gets Recorded
 
-```
-  RealSense camera
-       │  USB 3.x
-       ▼
-  realsense2_camera node
-       │  publishes sensor_msgs/Image to /camera/color/image_raw
-       ▼
-  record_data.py  rgb_callback()
-       │  stores latest_rgb + timestamp in memory
-       │
-  (meanwhile, at 1.5 Hz)
-       ▼
-  record_data.py  save_latest()
-       ├── cv_bridge converts Image → numpy array
-       ├── cv2.resize(rgb, (320, 240))
-       ├── cv2.imwrite("images/000042.jpg", bgr, quality=95)
-       └── writes JSON line: {frame_idx, stamp, odom, cmd}
-                                              ▲       ▲
-                               /RosAria/pose ─┘       │
-                               /RosAria/cmd_vel ───────┘
-```
+![w:900](assets/frame_recording.png)
 
 ---
 
@@ -351,47 +312,18 @@ The repo is mounted live — no rebuild needed for script changes.
 
 ## tmux Layout
 
-`start_tmux.sh` creates one tmux window with four panes, each `docker exec`-ing into the container:
-
-```
-┌──────────────────────┬──────────────────────┐
-│                      │                      │
-│  roscore             │  RosAria             │
-│  (must start first)  │  (robot driver)      │
-│                      │                      │
-├──────────────────────┼──────────────────────┤
-│                      │                      │
-│  record_data.py      │  teleop              │
-│  (waits 5s for       │  (joystick +         │
-│   roscore to settle) │   keyboard)          │
-│                      │                      │
-└──────────────────────┴──────────────────────┘
-              (MODE=record)
-```
-
+`start_tmux.sh` creates one tmux window with four panes, each `docker exec`-ing into the container.
 All four processes run inside the same container, talking to each other through ROS topics via `roscore`.
+
+![w:800](assets/tmux_layout.png)
 
 ---
 
 ## Putting It All Together
 
-```
-  You move the joystick
-         │
-         ▼
-  teleop_joystick.py
-  publishes Twist to /RosAria/cmd_vel  ──► RosAria drives the motors
-                                           RosAria publishes pose to /RosAria/pose
-                                                         │
-  realsense2_camera                                      │
-  publishes Image to /camera/color/image_raw             │
-         │                                               │
-         └──────────────► record_data.py ◄───────────────┘
-                          saves frame + odom + cmd
-                          to ./data/<dataset_name>/
-```
-
 Every 1/1.5 seconds, a snapshot of **what the robot saw**, **where it was**, and **what command was sent** is written to disk — a complete record for training or analysis.
+
+![w:1000](assets/end_to_end.png)
 
 ---
 

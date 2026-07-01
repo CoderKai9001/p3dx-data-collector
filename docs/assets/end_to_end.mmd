@@ -1,0 +1,33 @@
+flowchart LR
+    joy(["🕹️ Joystick /\nKeyboard"])
+    teleop["teleop_*.py"]
+    cmd{{"/RosAria/cmd_vel"}}
+    rosaria["RosAria"]
+    motors[["P3DX Motors"]]
+    pose{{"/RosAria/pose"}}
+    cam(["📷 RealSense D455"])
+    img{{"/camera/color/\nimage_raw"}}
+    rec["record_data.py"]
+    disk[("💾 ./data/\ndataset/")]
+
+    joy --> teleop
+    teleop -- "Twist\nmsg" --> cmd
+    cmd --> rosaria
+    rosaria --> motors
+    rosaria -- "Odometry" --> pose
+
+    cam -- "USB 3.x" --> img
+
+    pose --> rec
+    img  --> rec
+    cmd  --> rec
+    rec  --> disk
+
+    style joy fill:#fff8e1,stroke:#f9ab00
+    style cam fill:#fff8e1,stroke:#f9ab00
+    style cmd fill:#e8f0fe,stroke:#1a73e8
+    style pose fill:#e8f0fe,stroke:#1a73e8
+    style img  fill:#e8f0fe,stroke:#1a73e8
+    style rec  fill:#e6f4ea,stroke:#1e8e3e
+    style disk fill:#fce8e6,stroke:#d93025
+    style motors fill:#f3e8fd,stroke:#9334e6
