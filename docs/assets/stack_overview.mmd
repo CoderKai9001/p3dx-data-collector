@@ -1,0 +1,32 @@
+flowchart TD
+    subgraph Docker["🐳 Docker Container"]
+        direction TB
+        roscore(["roscore\n(name registry)"])
+
+        subgraph Drivers["Hardware Drivers"]
+            direction LR
+            rosaria["RosAria\nrobot driver"]
+            realsense["realsense2_camera\ncamera driver"]
+        end
+
+        subgraph Scripts["User Scripts"]
+            direction LR
+            teleop["teleop_joystick.py\nteleop_keyboard.py"]
+            recorder["record_data.py"]
+        end
+
+        roscore --> Drivers
+        roscore --> Scripts
+
+        teleop -- "/RosAria/cmd_vel\ngeometry_msgs/Twist" --> rosaria
+        rosaria -- "/RosAria/pose\nnav_msgs/Odometry" --> recorder
+        realsense -- "/camera/color/image_raw\nsensor_msgs/Image" --> recorder
+    end
+
+    disk[("💾 ./data/\nhost machine")]
+    recorder -- "images/\nframes.jsonl\ndataset_meta.json" --> disk
+
+    style Docker fill:#e8f0fe,stroke:#1a73e8,stroke-width:2px
+    style Drivers fill:#fce8e6,stroke:#d93025
+    style Scripts fill:#e6f4ea,stroke:#1e8e3e
+    style disk fill:#fff8e1,stroke:#f9ab00
