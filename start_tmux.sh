@@ -2,12 +2,19 @@
 # Start or attach to a p3dx-data-collector Docker container, then bring up a
 # host-side tmux session whose panes docker-exec into it.
 #
-# Layout:
+# Layout (MODE=record):
 #   top-left     : roscore
 #   top-right    : rosrun rosaria RosAria
 #   bottom-right : roslaunch realsense2_camera rs_camera.launch
-#   bottom-left  : record_data.py (record mode) or teleop (teleop mode)
-#   bottom-left split: teleop pane added automatically in record mode
+#   bottom-right split (below camera): rosbag record
+#   bottom-left  : record_data.py
+#   bottom-left split: teleop
+#
+# Layout (MODE=teleop):
+#   top-left     : roscore
+#   top-right    : rosrun rosaria RosAria
+#   bottom-right : roslaunch realsense2_camera rs_camera.launch
+#   bottom-left  : teleop
 #
 # Usage:
 #   ./start_tmux.sh             # bring up container + tmux, attach (default MODE=record)
@@ -51,6 +58,8 @@ RECORD_WIDTH="${RECORD_WIDTH:-320}"
 RECORD_HEIGHT="${RECORD_HEIGHT:-240}"
 JPEG_QUALITY="${JPEG_QUALITY:-95}"
 SAVE_DEPTH="${SAVE_DEPTH:-0}"
+RECORD_BAG="${RECORD_BAG:-1}"
+BAG_TOPICS="${BAG_TOPICS:-/camera/color/image_raw /camera/aligned_depth_to_color/image_raw /RosAria/pose /RosAria/cmd_vel}"
 
 TELEOP_TYPE="${TELEOP_TYPE:-both}"
 TELEOP_MAX_V="${TELEOP_MAX_V:-0.20}"
@@ -185,6 +194,12 @@ else
   if [[ "$MODE" == "record" ]]; then
     P4=$(tmux split-window -h -t "$P3" -P -F '#{pane_id}')
     tmux send-keys -t "$P4" "$EXEC '$ROS_SETUP && sleep 5 && $TELEOP_CMD'" C-m
+
+    if [[ "$RECORD_BAG" != "0" && "$RECORD_BAG" != "false" ]]; then
+      BAG_CMD="rosbag record -O $CONTAINER_DATA/$DATASET_NAME/recording.bag $BAG_TOPICS"
+      P5=$(tmux split-window -v -t "$P2" -P -F '#{pane_id}')
+      tmux send-keys -t "$P5" "$EXEC '$ROS_SETUP && sleep 5 && $BAG_CMD'" C-m
+    fi
   fi
 
   tmux select-pane -t "$P0"

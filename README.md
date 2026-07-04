@@ -26,13 +26,15 @@ docker build -t p3dx-data-collector .
 ./start_tmux.sh
 ```
 
-This opens a tmux window with four panes that start automatically:
+This opens a tmux window with six panes that start automatically:
 - `roscore`
 - P3DX driver (`RosAria`)
 - RealSense camera
-- Data recorder + teleop side-by-side
+- `rosbag record` (below camera)
+- Data recorder
+- Teleop (beside recorder)
 
-Frames are saved to `./data/dataset_<timestamp>/` on your machine.
+Everything is saved to `./data/dataset_<timestamp>/` on your machine.
 
 **2. Drive the robot** using the teleop pane (bottom-left split):
 
@@ -57,6 +59,7 @@ Dataset output:
 
 ```
 data/dataset_20250101_120000/
+  recording.bag         ← full ROS bag (raw topics at full rate)
   images/000000.jpg
   images/000001.jpg
   ...
@@ -76,9 +79,19 @@ Change recording rate (default 1.5 Hz):
 RECORD_HZ=3.0 ./start_tmux.sh
 ```
 
-Also record depth images:
+Also record depth images in the JPEG/JSON output:
 ```bash
 SAVE_DEPTH=1 ./start_tmux.sh
+```
+
+Disable rosbag recording:
+```bash
+RECORD_BAG=0 ./start_tmux.sh
+```
+
+Record only specific topics in the bag:
+```bash
+BAG_TOPICS="/camera/color/image_raw /RosAria/pose" ./start_tmux.sh
 ```
 
 Higher resolution (default 320×240):
