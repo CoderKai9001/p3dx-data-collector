@@ -59,7 +59,7 @@ RECORD_HEIGHT="${RECORD_HEIGHT:-240}"
 JPEG_QUALITY="${JPEG_QUALITY:-95}"
 SAVE_DEPTH="${SAVE_DEPTH:-0}"
 RECORD_BAG="${RECORD_BAG:-1}"
-BAG_TOPICS="${BAG_TOPICS:-/camera/color/image_raw /camera/aligned_depth_to_color/image_raw /RosAria/pose /RosAria/cmd_vel}"
+BAG_TOPICS="${BAG_TOPICS:-/camera/color/image_raw /camera/aligned_depth_to_color/image_raw /camera/color/camera_info /camera/depth/camera_info /RosAria/pose /RosAria/cmd_vel}"
 
 TELEOP_TYPE="${TELEOP_TYPE:-both}"
 TELEOP_MAX_V="${TELEOP_MAX_V:-0.20}"
