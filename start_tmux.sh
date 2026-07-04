@@ -86,6 +86,11 @@ need docker
 need tmux
 
 if [[ "${1:-}" == "stop" ]]; then
+  if docker ps --format '{{.Names}}' | grep -qx "$CONTAINER"; then
+    echo "[start_tmux.sh] sending SIGINT to rosbag record so bag is finalized..."
+    docker exec "$CONTAINER" bash -c 'pkill -SIGINT -f "rosbag record" 2>/dev/null || true'
+    sleep 2
+  fi
   if tmux has-session -t "$SESSION" 2>/dev/null; then
     tmux kill-session -t "$SESSION"
     echo "[start_tmux.sh] killed tmux session $SESSION"
