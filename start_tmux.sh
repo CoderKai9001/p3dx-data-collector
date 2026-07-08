@@ -59,7 +59,7 @@ RECORD_HEIGHT="${RECORD_HEIGHT:-240}"
 JPEG_QUALITY="${JPEG_QUALITY:-95}"
 SAVE_DEPTH="${SAVE_DEPTH:-0}"
 RECORD_BAG="${RECORD_BAG:-1}"
-BAG_TOPICS="${BAG_TOPICS:-/camera/color/image_raw /camera/aligned_depth_to_color/image_raw /camera/color/camera_info /camera/depth/camera_info /RosAria/pose /RosAria/cmd_vel}"
+BAG_TOPICS="${BAG_TOPICS:-/camera/color/camera_info /camera/depth/camera_info /RosAria/pose /RosAria/cmd_vel}"
 
 TELEOP_TYPE="${TELEOP_TYPE:-both}"
 TELEOP_MAX_V="${TELEOP_MAX_V:-0.20}"
@@ -87,9 +87,18 @@ need tmux
 
 if [[ "${1:-}" == "stop" ]]; then
   if docker ps --format '{{.Names}}' | grep -qx "$CONTAINER"; then
-    echo "[start_tmux.sh] sending SIGINT to rosbag record so bag is finalized..."
-    docker exec "$CONTAINER" bash -c 'pkill -SIGINT -f "rosbag record" 2>/dev/null || true'
-    sleep 2
+    if docker exec "$CONTAINER" pgrep -f "rosbag record" >/dev/null 2>&1; then
+      echo "[start_tmux.sh] sending SIGINT to rosbag record so bag is finalized..."
+      docker exec "$CONTAINER" bash -c 'pkill -SIGINT -f "rosbag record" 2>/dev/null || true'
+      echo "[start_tmux.sh] waiting for rosbag record to finish writing (this can take a while for large bags)..."
+      for _ in $(seq 1 150); do
+        docker exec "$CONTAINER" pgrep -f "rosbag record" >/dev/null 2>&1 || break
+        sleep 1
+      done
+      if docker exec "$CONTAINER" pgrep -f "rosbag record" >/dev/null 2>&1; then
+        echo "[start_tmux.sh] warning: rosbag record still running after 150s; the .bag may be left as .bag.active" >&2
+      fi
+    fi
   fi
   if tmux has-session -t "$SESSION" 2>/dev/null; then
     tmux kill-session -t "$SESSION"
