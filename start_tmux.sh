@@ -187,31 +187,42 @@ else
   exit 2
 fi
 
+# New panes run the host's login shell, which can take a moment to finish its
+# startup. If we send-keys before that settles, the shell's raw-mode switch
+# can swallow the injected command and Enter, leaving the pane sitting at an
+# idle prompt. PANE_STARTUP_DELAY gives each new pane's shell time to become
+# ready before we type into it.
+PANE_STARTUP_DELAY="${PANE_STARTUP_DELAY:-2}"
+
 if tmux has-session -t "$SESSION" 2>/dev/null; then
   echo "[start_tmux.sh] tmux session '$SESSION' already exists; attaching"
   echo "[start_tmux.sh] run '$0 stop' first to apply MODE changes"
 else
   P0=$(tmux new-session -d -s "$SESSION" -n robot -x 220 -y 50 -P -F '#{pane_id}')
+  sleep "$PANE_STARTUP_DELAY"
   tmux send-keys -t "$P0" "$EXEC '$ROS_SETUP && $ROSCORE_CMD'" C-m
 
-  sleep 2
-
   P1=$(tmux split-window -h -t "$P0" -P -F '#{pane_id}')
+  sleep "$PANE_STARTUP_DELAY"
   tmux send-keys -t "$P1" "$EXEC '$ROS_SETUP && $ROSARIA_CMD'" C-m
 
   P2=$(tmux split-window -v -t "$P1" -P -F '#{pane_id}')
+  sleep "$PANE_STARTUP_DELAY"
   tmux send-keys -t "$P2" "$EXEC '$ROS_SETUP && $CAMERA_CMD'" C-m
 
   P3=$(tmux split-window -v -t "$P0" -P -F '#{pane_id}')
+  sleep "$PANE_STARTUP_DELAY"
   tmux send-keys -t "$P3" "$EXEC '$ROS_SETUP && sleep 5 && $BOTTOM_LEFT_CMD'" C-m
 
   if [[ "$MODE" == "record" ]]; then
     P4=$(tmux split-window -h -t "$P3" -P -F '#{pane_id}')
+    sleep "$PANE_STARTUP_DELAY"
     tmux send-keys -t "$P4" "$EXEC '$ROS_SETUP && sleep 5 && $TELEOP_CMD'" C-m
 
     if [[ "$RECORD_BAG" != "0" && "$RECORD_BAG" != "false" ]]; then
       BAG_CMD="rosbag record -O $CONTAINER_DATA/$DATASET_NAME/recording.bag $BAG_TOPICS"
       P5=$(tmux split-window -v -t "$P2" -P -F '#{pane_id}')
+      sleep "$PANE_STARTUP_DELAY"
       tmux send-keys -t "$P5" "$EXEC '$ROS_SETUP && sleep 5 && $BAG_CMD'" C-m
     fi
   fi
